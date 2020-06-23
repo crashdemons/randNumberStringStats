@@ -1,0 +1,123 @@
+<html>
+<head>
+<title>RandomString matcher</title>
+<script>
+	window.rs = {};
+	window.rs.total = 0;
+	window.rs.occurrences = [];
+	function getRandChunk(len){//not accurate for higher values of len
+		return String(Math.random()).substr(2,len);
+	}
+	function getString(len){
+		var chunkSize = 10;
+		var wholeChunks = Math.floor(len/chunkSize);
+		var overflowSize = len%chunkSize;
+
+		var randomData = "";
+		for(var i=0; i<wholeChunks; i++){
+			randomData += getRandChunk(chunkSize);
+		}
+		if(overflowSize>0){
+			randomData += String(getRandChunk(overflowSize));
+		}
+		return randomData;
+	}
+	function generateStrings(num, len, callback){
+		for(var i=0; i<num; i++){
+			var entry = getString(len);
+			callback(entry);
+		}
+	}
+	function recordEntry(entry, countFunction, updateCallback){
+		window.rs.total += 1;
+		
+		var occ = countFunction(entry);
+		window.rs.occurrences[occ] += 1;
+		
+		updateCallback();
+	}
+	
+	function getMatchCount(str, pattern){
+		return (str.match(pattern) || []).length;
+	}
+	function reqMatchCount(str, pattern, count){
+		return getMatchCount(str,pattern)>=count;
+	}
+	
+	function uiUpdate(){
+		document.getElementById('generated').textContent = window.rs.total;
+		//document.getElementById('matches').textContent = window.rs.matches;
+		//document.getElementById('percent').textContent = (fraction*100).toFixed(2);
+		
+		var results = "";
+		for(var i=0;i<100;i++){
+			var occ = window.rs.occurrences[i];
+			if(occ < 1) continue;
+			var fraction = occ / window.rs.total;
+			var percent = (fraction*100).toFixed(2);
+			results += i+" occurrences: "+occ+" matches ("+percent+"%)\r\n";
+		}
+		document.getElementById('results').textContent = results;
+		
+	}
+	function uiGenerateNum(num){
+		var len = parseInt(document.getElementById('length').value);
+		var match = document.getElementById('regex').value;
+		var regex = new RegExp(match, 'g');
+		
+		var countFunction = (function(matchValue){
+			return function(entry){
+				return getMatchCount(entry,matchValue);
+				//return (entry.indexOf(matchValue1) != -1) && (entry.indexOf(matchValue2) != -1);
+			}
+		})(regex);//close the match value into the function to prevent undesired changes.
+		
+		
+		generateStrings(num,len,
+			function(entry){
+				recordEntry(entry, countFunction, uiUpdate);
+			}
+		);
+	}
+	
+	function uiGenerateDeferred(){
+		window.rs.total = 0;
+		for(var i=0;i<1000;i++) window.rs.occurrences[i]=0;
+		
+		var num = parseInt(document.getElementById('number').value);
+		var delay = parseInt(document.getElementById('timing').value);
+		var batchSize = parseInt(document.getElementById('batch').value);
+		var thousands = Math.floor(num/batchSize);
+		var leftover = num%batchSize;
+		for(var i=0; i<thousands; i++){
+			setTimeout(function(){
+					uiGenerateNum(batchSize);
+				},
+				delay*i+i
+			);
+		}
+		setTimeout(function(){
+				uiGenerateNum(leftover);
+			},
+			delay*i+i
+		);
+	}
+	
+	
+</script>
+
+</head>
+<body>
+	Create <input id="number" value="100000"> random number strings with
+	<input id="length" value="154"> digits.<br>
+	Generation step delay <input id="timing" value="25">ms (lower = faster, but less stable)<br>
+	Generation step batch size <input id="batch" value="1000"> strings. (bigger = faster, but less responsive)<br>
+<button onclick="uiGenerateDeferred()">Generate</button>
+
+	<hr>
+	Regex (g): <input id="regex" value="(133|331)">
+	<hr>
+	Generated <span id="generated">0</span> strings
+	<pre id="results"></pre>
+</body>
+</html>
